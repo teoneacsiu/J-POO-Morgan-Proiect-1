@@ -25,7 +25,7 @@ public class AddAccountCommand implements Command {
     @Override
     public void execute() {
         try {
-            Account account = userService.addAccount(email, currency, accountType, interestRate);
+            Account account = userService.addAccount(email, currency, accountType, interestRate, 0);
             System.out.println("Cont adăugat: IBAN=" + account.getIban() + ", Tip=" + account.getType() + ", Moneda=" + account.getCurrency());
         } catch (IllegalArgumentException e) {
             System.err.println("Eroare la crearea contului: " + e.getMessage());

@@ -3,11 +3,14 @@ package org.poo.main;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.poo.checker.Checker;
 import org.poo.checker.CheckerConstants;
 import org.poo.fileio.ExchangeInput;
 import org.poo.fileio.ObjectInput;
+import org.poo.model.Account;
 import org.poo.model.ExchangeRate;
+import org.poo.model.Transaction;
 import org.poo.model.User;
 import org.poo.service.CurrencyExchangeService;
 import org.poo.service.UserService;
@@ -20,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -75,6 +79,8 @@ public final class Main {
     public static void action(final String filePath1, final String filePath2) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         File file = new File(CheckerConstants.TESTS_PATH + filePath1);
+        System.out.println(filePath1);
+        System.out.println("\n\n");
         ObjectInput inputData = objectMapper.readValue(file, ObjectInput.class);
 
         // Reset random generators
@@ -117,7 +123,8 @@ public final class Main {
                                 command.getEmail(),
                                 command.getCurrency(),
                                 command.getAccountType(),
-                                command.getInterestRate()
+                                command.getInterestRate(),
+                                command.getTimestamp()
                         );
                     }
                     case "addFunds" -> {
@@ -167,8 +174,6 @@ public final class Main {
                                     cardNumber,           // Use card number
                                     command.getTimestamp()
                             );
-
-
                         } catch (Exception e) {
                             var errorNode = objectMapper.createObjectNode();
                             errorNode.put("status", "error");
@@ -239,22 +244,103 @@ public final class Main {
                     }
                     case "sendMoney" -> {
                         try {
+                            // Resolve sender account
+                            String senderAccount = userService.findAccountByAliasOrIBAN(command.getAccount()).getIban();
+                            if (senderAccount == null) {
+                                throw new IllegalArgumentException("Invalid sender account: " + command.getAccount());
+                            }
+
+                            // Resolve receiver account
+                            String receiverAccount = userService.findAccountByAliasOrIBAN(command.getReceiver()).getIban();
+                            if (receiverAccount == null) {
+                                throw new IllegalArgumentException("Invalid receiver account: " + command.getReceiver());
+                            }
+
+                            // Perform the money transfer
                             userService.sendMoney(
-                                    command.getAccount(),       // Sender IBAN
-                                    command.getAmount(),        // Amount
-                                    command.getReceiver(),      // Receiver IBAN
-                                    command.getTimestamp(),     // Timestamp
-                                    command.getDescription()    // Description
+                                    command.getAccount(),
+                                    command.getAmount(),
+                                    command.getReceiver(),
+                                    command.getTimestamp(),
+                                    command.getDescription(),
+                                    command.getEmail()
                             );
                         } catch (Exception e) {
-                            // Error response
+                            // Handle errors by adding them to output
                             var errorNode = objectMapper.createObjectNode();
+                            errorNode.put("status", "error");
                             errorNode.put("command", "sendMoney");
+                            errorNode.put("message", e.getMessage());
+                            output.add(errorNode);
+                        }
+                    }
+                    case "setAlias" -> {
+                        try {
+                            userService.setAlias(command.getEmail(), command.getAlias(), command.getAccount());
+                        } catch (Exception e) {
+                            var errorNode = objectMapper.createObjectNode();
+                            errorNode.put("status", "error");
+                            errorNode.put("command", "setAlias");
+                            errorNode.put("message", e.getMessage());
+                            output.add(errorNode);
+                        }
+                    }
+                    case "printTransactions" -> {
+                        try {
+                            User user = userService.findUserByEmail(command.getEmail());
+
+                            if (user == null) {
+                                throw new IllegalArgumentException("User not found.");
+                            }
+
+                            ArrayNode transactionsOutput = objectMapper.createArrayNode();
+                            for (Account account : user.getAccounts()) {
+                                for (Transaction transaction : account.getTransactions()) {
+                                    ObjectNode transactionNode = objectMapper.createObjectNode();
+
+                                    // Special case for "New account created"
+                                    if ("New account created".equals(transaction.getDescription())) {
+                                        transactionNode.put("timestamp", transaction.getTimestamp());
+                                        transactionNode.put("description", transaction.getDescription());
+                                    } else {
+                                        transactionNode.put("timestamp", transaction.getTimestamp());
+                                        transactionNode.put("description", transaction.getDescription());
+                                        transactionNode.put("senderIBAN", transaction.getSenderIBAN());
+                                        transactionNode.put("receiverIBAN", transaction.getReceiverIBAN());
+                                        transactionNode.put("amount", transaction.getAmount() + " " + transaction.getCurrency());
+                                        transactionNode.put("transferType", transaction.getTransferType());
+                                    }
+
+                                    transactionsOutput.add(transactionNode);
+                                }
+                            }
+
+                            var outputNode = objectMapper.createObjectNode();
+                            outputNode.put("command", "printTransactions");
+                            outputNode.set("output", transactionsOutput);
+                            outputNode.put("timestamp", command.getTimestamp());
+                            output.add(outputNode);
+
+                        } catch (Exception e) {
+                            var errorNode = objectMapper.createObjectNode();
+                            errorNode.put("command", "printTransactions");
                             errorNode.putObject("output").put("description", e.getMessage());
                             errorNode.put("timestamp", command.getTimestamp());
                             output.add(errorNode);
                         }
                     }
+                    case "addInterest" -> {
+                        try {
+                            userService.addInterest(command.getAccount(), command.getTimestamp());
+                        } catch (Exception e) {
+                            var errorNode = objectMapper.createObjectNode();
+                            errorNode.put("command", "addInterest");
+                            errorNode.putObject("output").put("description", e.getMessage());
+                            errorNode.put("timestamp", command.getTimestamp());
+                            output.add(errorNode);
+                        }
+                    }
+
 
                     default -> throw new IllegalArgumentException("Unknown command: " + command.getCommand());
                 }

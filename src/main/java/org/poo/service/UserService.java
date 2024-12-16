@@ -60,6 +60,34 @@ public class UserService {
         return null; // Return null if no account with the specified IBAN is found
     }
 
+    public Account findAccountByAliasOrIBAN(String identifier) {
+        String resolvedIBAN = identifier; // Assume it's an IBAN by default
+
+        // Check if it's an alias
+        for (User user : users) { // Assume `users` is a List<User> in UserService
+            String ibanFromAlias = user.getIBANForAlias(identifier); // Implement getIBANForAlias in User
+            if (ibanFromAlias != null) {
+                resolvedIBAN = ibanFromAlias;
+                break;
+            }
+        }
+
+        // Find account by IBAN
+        return findAccountByIBAN(resolvedIBAN);
+    }
+
+    public String resolveAliasOrIBAN(String identifier, User senderUser) {
+        // Check if the identifier is an alias in the sender's alias list
+        String resolvedIBAN = senderUser.getIBANForAlias(identifier);
+        if (resolvedIBAN != null) {
+            return resolvedIBAN; // Alias found, return IBAN
+        }
+
+        // Otherwise, assume the identifier is an IBAN
+        return identifier;
+    }
+
+
 
     /**
      * Adaugă un cont nou utilizatorului specificat prin email.
@@ -71,39 +99,46 @@ public class UserService {
      * @return Contul creat
      * @throws IllegalArgumentException Dacă utilizatorul nu este găsit sau tipul de cont este invalid
      */
-    public Account addAccount(String email, String currency, String accountType, Double interestRate) {
+    public Account addAccount(String email, String currency, String accountType, Double interestRate, int timestamp) {
         User user = findUserByEmail(email);
 
-        // Validăm existența utilizatorului
+        // Validate user existence
         if (user == null) {
-            throw new IllegalArgumentException("Utilizatorul nu a fost găsit pentru email-ul: " + email);
+            throw new IllegalArgumentException("User not found for email: " + email);
         }
 
-        // Generăm un IBAN unic folosind utilitarul
+        // Generate a unique IBAN
         String iban = Utils.generateIBAN();
         Account newAccount;
 
-        // Cream contul în funcție de tipul specificat
+        // Create the account based on type
         if ("classic".equalsIgnoreCase(accountType)) {
             newAccount = new Account(iban, currency, "classic");
         } else if ("savings".equalsIgnoreCase(accountType)) {
             if (interestRate == null) {
-                throw new IllegalArgumentException("Dobânda este necesară pentru conturile de economii.");
+                throw new IllegalArgumentException("Interest rate is required for savings accounts.");
             }
             newAccount = new SavingsAccount(iban, currency, interestRate);
         } else {
-            throw new IllegalArgumentException("Tip de cont invalid: " + accountType);
+            throw new IllegalArgumentException("Invalid account type: " + accountType);
         }
 
-        // Asigurăm inițializarea listei de conturi
+        // Ensure account list is initialized
         if (user.getAccounts() == null) {
             user.setAccounts(new ArrayList<>());
         }
 
-        // Adăugăm contul la utilizator
+        // Add the account to the user
         user.getAccounts().add(newAccount);
+
+        // Add a transaction for account creation
+        Transaction creationTransaction = new Transaction(timestamp, "New account created");
+        newAccount.addTransaction(creationTransaction);
+
         return newAccount;
     }
+
+
 
     /**
      * Returnează lista tuturor utilizatorilor din sistem.
@@ -362,43 +397,167 @@ public class UserService {
         throw new IllegalArgumentException("Card not found: " + cardNumber);
     }
 
-    public void sendMoney(String senderIBAN, double amount, String receiverIBAN, int timestamp, String description) {
-        Account senderAccount = findAccountByIBAN(senderIBAN);
-        Account receiverAccount = findAccountByIBAN(receiverIBAN);
-
-        if (senderAccount == null || receiverAccount == null) {
-            throw new IllegalArgumentException("Invalid account for sender or receiver.");
+    public void sendMoney(String senderIBANOrAlias, double amount, String receiverIBANOrAlias,
+                          int timestamp, String description, String senderEmail) {
+        // Find the sender user
+        User senderUser = findUserByEmail(senderEmail);
+        if (senderUser == null) {
+            return;
         }
 
-        double convertedAmount;
-        try {
-            convertedAmount = currencyExchangeService.convert(
-                    senderAccount.getCurrency(),
-                    receiverAccount.getCurrency(),
-                    amount
-            );
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown currency: " +
-                    senderAccount.getCurrency() + " or " + receiverAccount.getCurrency());
+        // Resolve sender IBAN
+        boolean isSenderAlias = senderUser.hasAlias(senderIBANOrAlias);
+        String resolvedSenderIBAN = isSenderAlias ? senderUser.getIBANForAlias(senderIBANOrAlias) : senderIBANOrAlias;
+
+        Account senderAccount = findAccountByIBAN(resolvedSenderIBAN);
+        if (senderAccount == null) {
+            return;
         }
 
+        // Resolve receiver IBAN
+        boolean isReceiverAlias = senderUser.hasAlias(receiverIBANOrAlias);
+        String resolvedReceiverIBAN = isReceiverAlias ? senderUser.getIBANForAlias(receiverIBANOrAlias) : receiverIBANOrAlias;
+
+        Account receiverAccount = findAccountByIBAN(resolvedReceiverIBAN);
+        if (receiverAccount == null) {
+            return;
+        }
+
+        // Block transactions if one uses an alias and the other uses an IBAN
+        if ((isSenderAlias && !isReceiverAlias) || (!isSenderAlias && isReceiverAlias)) {
+            return;
+        }
+
+        // Check if sender has sufficient funds
         if (senderAccount.getBalance() < amount) {
             return;
         }
+
+        // Perform currency conversion
+        double convertedAmount = currencyExchangeService.convert(
+                senderAccount.getCurrency(),
+                receiverAccount.getCurrency(),
+                amount
+        );
 
         // Perform the transfer
         senderAccount.setBalance(senderAccount.getBalance() - amount);
         receiverAccount.setBalance(receiverAccount.getBalance() + convertedAmount);
 
-        // Add transactions
-        senderAccount.addTransaction(new Transaction(timestamp, "Sent: " + description));
-        receiverAccount.addTransaction(new Transaction(timestamp, "Received: " + description));
+        // Log the transaction for both accounts
+        senderAccount.addTransaction(new Transaction(
+                timestamp,
+                description,
+                senderAccount.getIban(),
+                receiverAccount.getIban(),
+                amount,
+                senderAccount.getCurrency(),
+                "sent"
+        ));
+        receiverAccount.addTransaction(new Transaction(
+                timestamp,
+                description,
+                senderAccount.getIban(),
+                receiverAccount.getIban(),
+                convertedAmount,
+                receiverAccount.getCurrency(),
+                "received"
+        ));
     }
 
 
 
+    private boolean isIBAN(String receiverIBANOrAlias) {
+        return receiverIBANOrAlias.matches("^[A-Z]{2}[0-9]{2}[A-Z]{4}[0-9]{16}$");
+    }
 
 
+    private User findUserByIBAN(String senderIBAN) {
+        for (User user : users) {
+            for (Account account : user.getAccounts()) {
+                if (account.getIban().equals(senderIBAN)) {
+                    return user;
+                }
+            }
+        }
+        return null;
+    }
 
 
+    public void setAlias(String email, String alias, String accountIBAN) {
+        User user = findUserByEmail(email);
+
+        // Verificăm existența utilizatorului
+        if (user == null) {
+            throw new IllegalArgumentException("Utilizatorul nu există pentru email-ul specificat: " + email);
+        }
+
+        // Verificăm dacă IBAN-ul există printre conturile utilizatorului
+        Account account = user.getAccounts().stream()
+                .filter(acc -> acc.getIban().equals(accountIBAN))
+                .findFirst()
+                .orElse(null);
+
+        if (account == null) {
+            throw new IllegalArgumentException("Contul cu IBAN-ul specificat nu există: " + accountIBAN);
+        }
+
+        // Adăugăm alias-ul (suprascrie alias-ul existent, dacă este cazul)
+        user.getAliases().put(alias, accountIBAN);
+    }
+
+
+    public List<Transaction> getTransactions(String email) {
+        User user = findUserByEmail(email);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found: " + email);
+        }
+
+        List<Transaction> allTransactions = new ArrayList<>();
+        for (Account account : user.getAccounts()) {
+            allTransactions.addAll(account.getTransactions());
+        }
+
+        return allTransactions;
+    }
+
+    public void addInterest(String iban, int timestamp) {
+        Account account = findAccountByIBAN(iban);
+
+        // Verificăm dacă IBAN-ul este valid
+        if (account == null) {
+            throw new IllegalArgumentException("Contul cu IBAN-ul specificat nu există: " + iban);
+        }
+
+        // Verificăm dacă este un cont de economii
+        if (!(account instanceof SavingsAccount)) {
+            throw new IllegalArgumentException("Dobânda poate fi aplicată doar conturilor de economii.");
+        }
+
+        SavingsAccount savingsAccount = (SavingsAccount) account;
+
+        // Calculăm dobânda și o adăugăm la balanță
+        double interest = savingsAccount.getBalance() * savingsAccount.getInterestRate() / 100;
+        savingsAccount.setBalance(savingsAccount.getBalance() + interest);
+
+        // Înregistrăm tranzacția
+        savingsAccount.addTransaction(new Transaction(
+                timestamp,
+                "Interest added: " + interest,
+                null,
+                savingsAccount.getIban(),
+                interest,
+                savingsAccount.getCurrency(),
+                "interest"
+        ));
+    }
+
+    public boolean isAlias(String senderIBAN) {
+        for (User user : users) {
+            if (user.hasAlias(senderIBAN)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
