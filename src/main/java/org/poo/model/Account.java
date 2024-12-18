@@ -17,19 +17,24 @@ public class Account {
     private List<Card> cards = new ArrayList<>();
     private List<Transaction> transactions = new ArrayList<>();
 
-    public Account(String iban, String currency, String type) {
+    public Account(final String iban, final String currency,
+                   final String type) {
         this.iban = iban;
         this.currency = currency;
         this.type = type;
     }
 
-    // Add a transaction to the account
-    public void addTransaction(Transaction transaction) {
+    /**
+     * Add a transaction to the account
+     */
+    public void addTransaction(final Transaction transaction) {
         transactions.add(transaction);
     }
 
-    // Add a card to the account
-    public void addCard(Card card) {
+    /**
+     * Add a card to the account
+     */
+    public void addCard(final Card card) {
         cards.add(card);
     }
 

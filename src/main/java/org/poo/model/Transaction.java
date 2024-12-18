@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,16 +25,26 @@ public class Transaction {
     private String cardHolder;    // Opțional: Deținătorul cardului pentru tranzacțiile cu carduri
     private String commerciant;   // Opțional: Numele comerciantului (pentru tranzacțiile online)
     private String commandType;   // Nou: Tipul comenzii care a generat tranzacția
+    private List<String> accounts;
+
+    public Transaction(final String description, final int timestamp) {
+        this.description = description;
+        this.timestamp = timestamp;
+    }
 
     // Constructor pentru tranzacții simple
-    public Transaction(int timestamp, String description, String commandType) {
+    public Transaction(final int timestamp, final String description,
+                       final String commandType) {
         this.timestamp = timestamp;
         this.description = description;
         this.commandType = commandType;
     }
 
     // Constructor pentru sendMoney
-    public Transaction(int timestamp, String description, String senderIBAN, String receiverIBAN, double amount, String currency, String transferType, String commandType) {
+    public Transaction(final int timestamp, final String description,
+                       final String senderIBAN, final String receiverIBAN,
+                       final double amount, final String currency,
+                       final String transferType, final String commandType) {
         this.timestamp = timestamp;
         this.description = description;
         this.senderIBAN = senderIBAN;
@@ -44,7 +56,10 @@ public class Transaction {
     }
 
     // Constructor pentru card payment
-    public Transaction(int timestamp, String description, String cardNumber, String cardHolder, String commerciant, double amount, String currency, String commandType) {
+    public Transaction(final int timestamp, final String description,
+                       final String cardNumber, final String cardHolder,
+                       final String commerciant, final double amount,
+                       final String currency, final String commandType) {
         this.timestamp = timestamp;
         this.description = description;
         this.cardNumber = cardNumber;
@@ -57,7 +72,9 @@ public class Transaction {
     }
 
     // Constructor pentru deleteCard
-    public Transaction(int timestamp, String cardNumber, String cardHolder, String senderIBAN, String commandType) {
+    public Transaction(final int timestamp, final String cardNumber,
+                       final String cardHolder, final String senderIBAN,
+                       final String commandType) {
         this.timestamp = timestamp;
         this.description = "The card has been destroyed";
         this.cardNumber = cardNumber;
@@ -66,17 +83,39 @@ public class Transaction {
         this.commandType = commandType;
     }
 
-    // Metodă pentru descriere formatată
-    public String getFormattedDescription() {
-        if ("deleteCard".equals(commandType)) {
-            return "The card has been destroyed";
-        } else if ("sendMoney".equals(commandType)) {
-            return "Transfer from " + senderIBAN + " to " + receiverIBAN;
-        } else if ("payOnline".equals(commandType)) {
-            return "Card payment to " + commerciant;
-        } else if ("addAccount".equals(commandType)) {
-            return "New account created";
-        }
-        return description;
+    public Transaction(final String description, final int timestamp,
+                       final String cardNumber, final String cardHolder,
+                       final String senderIBAN) {
+        this.description = description;
+        this.timestamp = timestamp;
+        this.cardNumber = cardNumber;
+        this.cardHolder = cardHolder;
+        this.senderIBAN = senderIBAN;
+    }
+
+    public Transaction(final int timestamp, final String description,
+                       final double amount, final String commerciant) {
+        this.timestamp = timestamp;
+        this.description = description;
+        this.amount = amount;
+        this.commerciant = commerciant;
+    }
+
+    public Transaction(final String commandType, final int timestamp,
+                       final String cardNumber, final String cardHolder) {
+        this.commandType = commandType;
+        this.timestamp = timestamp;
+        this.cardNumber = cardNumber;
+        this.cardHolder = cardHolder;
+    }
+
+    public Transaction(final int timestamp, final String description,
+                       final String currency, final double splitSum,
+                       final List<String> accounts) {
+        this.timestamp = timestamp;
+        this.description = description;
+        this.currency = currency;
+        this.amount = splitSum;
+        this.accounts = accounts;
     }
 }

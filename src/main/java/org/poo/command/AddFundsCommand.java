@@ -11,12 +11,16 @@ public class AddFundsCommand implements Command {
     private final String iban;
     private final double amount;
 
-    public AddFundsCommand(UserService userService, String iban, double amount) {
+    public AddFundsCommand(final UserService userService, final String iban,
+                           final double amount) {
         this.userService = userService;
         this.iban = iban;
         this.amount = amount;
     }
 
+    /**
+     * javadoc
+     */
     @Override
     public void execute() {
         try {

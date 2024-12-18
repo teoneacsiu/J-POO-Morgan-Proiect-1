@@ -12,13 +12,17 @@ public class DeleteCardCommand implements Command {
     private final String cardNumber;
     private final int timestamp;
 
-    public DeleteCardCommand(UserService userService, String email, String cardNumber, int timestamp) {
+    public DeleteCardCommand(final UserService userService, final String email,
+                             final String cardNumber, final int timestamp) {
         this.userService = userService;
         this.email = email;
         this.cardNumber = cardNumber;
         this.timestamp = timestamp;
     }
 
+    /**
+     * javadoc
+     */
     @Override
     public void execute() {
         try {

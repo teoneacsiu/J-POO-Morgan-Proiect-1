@@ -7,8 +7,11 @@ import java.util.*;
 public class CurrencyExchangeService {
     private final Map<String, List<ExchangeRate>> adjacencyList = new HashMap<>();
 
-    // Add an exchange rate (direct and reverse)
-    public void addExchangeRate(String from, String to, double rate) {
+    /**
+     * Add an exchange rate (direct and reverse)
+     */
+    public void addExchangeRate(final String from, final String to,
+                                final double rate) {
         adjacencyList.putIfAbsent(from, new ArrayList<>());
         adjacencyList.putIfAbsent(to, new ArrayList<>());
 
@@ -16,8 +19,11 @@ public class CurrencyExchangeService {
         adjacencyList.get(to).add(new ExchangeRate(to, from, 1.0 / rate));
     }
 
-    // Convert an amount from one currency to another
-    public double convert(String from, String to, double amount) {
+    /**
+     * Convert an amount from one currency to another
+     */
+    public double convert(final String from, final String to,
+                          final double amount) {
         if (!adjacencyList.containsKey(from) || !adjacencyList.containsKey(to)) {
             throw new IllegalArgumentException("Unknown currency: " + from + " or " + to);
         }
@@ -33,8 +39,11 @@ public class CurrencyExchangeService {
         return result;
     }
 
-    // DFS to find conversion ratio
-    private Double dfsConvert(String current, String target, double currentAmount, Set<String> visited) {
+    /**
+     * DFS to find conversion ratio
+     */
+    private Double dfsConvert(final String current, final String target,
+                              final double currentAmount, final Set<String> visited) {
         visited.add(current);
 
         // If we reach the target currency

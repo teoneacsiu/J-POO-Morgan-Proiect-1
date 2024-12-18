@@ -11,7 +11,8 @@ import lombok.Setter;
 public class SavingsAccount extends Account {
     private double interestRate;
 
-    public SavingsAccount(String iban, String currency, double interestRate) {
+    public SavingsAccount(final String iban, final String currency,
+                          final double interestRate) {
         super(iban, currency, "savings");
         this.interestRate = interestRate;
     }

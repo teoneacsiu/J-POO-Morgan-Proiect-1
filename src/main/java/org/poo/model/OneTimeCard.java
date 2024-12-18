@@ -6,16 +6,22 @@ import lombok.Getter;
 public class OneTimeCard extends Card {
     private boolean used; // Indicates if the card has been used
 
-    public OneTimeCard(String cardNumber, String iban) {
+    public OneTimeCard(final String cardNumber, final String iban) {
         super(cardNumber, iban);
         this.used = false;
     }
 
-    public boolean setUsed(boolean b) {
+    /**
+     * javadoc
+     */
+    public boolean setUsed(final boolean b) {
         this.used = true;
         return this.used;
     }
 
+    /**
+     * javadoc
+     */
     @Override
     public String getStatus() {
         return used ? "used" : "active";
@@ -27,7 +33,8 @@ public class OneTimeCard extends Card {
      */
     public void useCard() {
         if (used) {
-            throw new IllegalStateException("One-time card has already been used: " + getCardNumber());
+            throw new IllegalStateException("One-time card has already been used: "
+                    + getCardNumber());
         }
         this.setUsed(true);
     }

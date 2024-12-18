@@ -14,7 +14,9 @@ public class AddAccountCommand implements Command {
     private final String accountType;
     private final Double interestRate;
 
-    public AddAccountCommand(UserService userService, String email, String currency, String accountType, Double interestRate) {
+    public AddAccountCommand(final UserService userService, final String email,
+                             final String currency, final String accountType,
+                             final Double interestRate) {
         this.userService = userService;
         this.email = email;
         this.currency = currency;
@@ -22,11 +24,15 @@ public class AddAccountCommand implements Command {
         this.interestRate = interestRate;
     }
 
+    /**
+     * javadoc
+     */
     @Override
     public void execute() {
         try {
             Account account = userService.addAccount(email, currency, accountType, interestRate, 0);
-            System.out.println("Cont adăugat: IBAN=" + account.getIban() + ", Tip=" + account.getType() + ", Moneda=" + account.getCurrency());
+            System.out.println("Cont adăugat: IBAN=" + account.getIban() + ", Tip="
+                    + account.getType() + ", Moneda=" + account.getCurrency());
         } catch (IllegalArgumentException e) {
             System.err.println("Eroare la crearea contului: " + e.getMessage());
         }

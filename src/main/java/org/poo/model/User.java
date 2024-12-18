@@ -21,7 +21,8 @@ public class User {
         // Default constructor
     }
 
-    public User(String firstName, String lastName, String email) {
+    public User(final String firstName, final String lastName,
+                final String email) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
@@ -33,7 +34,7 @@ public class User {
      * @param alias the alias name
      * @param iban the IBAN associated with the alias
      */
-    public void addAlias(String alias, String iban) {
+    public void addAlias(final String alias, final String iban) {
         aliases.put(alias, iban);
     }
 
@@ -43,7 +44,7 @@ public class User {
      * @param alias the alias name
      * @return the IBAN associated with the alias, or null if not found
      */
-    public String getIBANForAlias(String alias) {
+    public String getIBANForAlias(final String alias) {
         return aliases.get(alias);
     }
 
@@ -53,7 +54,7 @@ public class User {
      * @param alias the alias name
      * @return true if the alias exists, false otherwise
      */
-    public boolean hasAlias(String alias) {
+    public boolean hasAlias(final String alias) {
         return aliases.containsKey(alias);
     }
 }

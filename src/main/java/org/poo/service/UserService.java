@@ -3,6 +3,7 @@ package org.poo.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.poo.fileio.CommandInput;
 import org.poo.model.*;
 import org.poo.utils.Utils;
 
@@ -19,7 +20,7 @@ public class UserService {
 
     private final CurrencyExchangeService currencyExchangeService;
 
-    public UserService(CurrencyExchangeService currencyExchangeService) {
+    public UserService(final CurrencyExchangeService currencyExchangeService) {
         this.currencyExchangeService = currencyExchangeService;
     }
 
@@ -28,9 +29,8 @@ public class UserService {
      *
      * @param user Utilizatorul de adăugat
      */
-    public void addUser(User user) {
+    public void addUser(final User user) {
         users.add(user);
-        System.out.println("Utilizator adăugat: " + user.getEmail());
     }
 
 
@@ -40,7 +40,7 @@ public class UserService {
      * @param email Email-ul utilizatorului
      * @return Utilizatorul găsit sau null dacă nu există
      */
-    public User findUserByEmail(String email) {
+    public User findUserByEmail(final String email) {
         for (User user : users) {
             if (user.getEmail().equalsIgnoreCase(email)) {
                 return user;
@@ -49,7 +49,10 @@ public class UserService {
         return null;
     }
 
-    public Account findAccountByIBAN(String iban) {
+    /**
+     * javadoc
+     */
+    public Account findAccountByIBAN(final String iban) {
         for (User user : users) { // Assuming `users` is a list of all users
             for (Account account : user.getAccounts()) {
                 if (account.getIban().equals(iban)) {
@@ -60,12 +63,15 @@ public class UserService {
         return null; // Return null if no account with the specified IBAN is found
     }
 
-    public Account findAccountByAliasOrIBAN(String identifier) {
+    /**
+     * javadoc
+     */
+    public Account findAccountByAliasOrIBAN(final String identifier) {
         String resolvedIBAN = identifier; // Assume it's an IBAN by default
 
         // Check if it's an alias
         for (User user : users) { // Assume `users` is a List<User> in UserService
-            String ibanFromAlias = user.getIBANForAlias(identifier); // Implement getIBANForAlias in User
+            String ibanFromAlias = user.getIBANForAlias(identifier);
             if (ibanFromAlias != null) {
                 resolvedIBAN = ibanFromAlias;
                 break;
@@ -76,19 +82,6 @@ public class UserService {
         return findAccountByIBAN(resolvedIBAN);
     }
 
-    public String resolveAliasOrIBAN(String identifier, User senderUser) {
-        // Check if the identifier is an alias in the sender's alias list
-        String resolvedIBAN = senderUser.getIBANForAlias(identifier);
-        if (resolvedIBAN != null) {
-            return resolvedIBAN; // Alias found, return IBAN
-        }
-
-        // Otherwise, assume the identifier is an IBAN
-        return identifier;
-    }
-
-
-
     /**
      * Adaugă un cont nou utilizatorului specificat prin email.
      *
@@ -97,9 +90,12 @@ public class UserService {
      * @param accountType Tipul contului: "classic" sau "savings"
      * @param interestRate Dobânda (doar pentru conturile de economii)
      * @return Contul creat
-     * @throws IllegalArgumentException Dacă utilizatorul nu este găsit sau tipul de cont este invalid
+     * @throws IllegalArgumentException Dacă utilizatorul nu este găsit sau tipul de
+     * cont este invalid
      */
-    public Account addAccount(String email, String currency, String accountType, Double interestRate, int timestamp) {
+    public Account addAccount(final String email, final String currency,
+                              final String accountType, final Double interestRate,
+                              final int timestamp) {
         User user = findUserByEmail(email);
 
         // Validate user existence
@@ -116,7 +112,8 @@ public class UserService {
             newAccount = new Account(iban, currency, "classic");
         } else if ("savings".equalsIgnoreCase(accountType)) {
             if (interestRate == null) {
-                throw new IllegalArgumentException("Interest rate is required for savings accounts.");
+                throw new IllegalArgumentException("Interest rate is required "
+                        + "for savings accounts.");
             }
             newAccount = new SavingsAccount(iban, currency, interestRate);
         } else {
@@ -132,21 +129,11 @@ public class UserService {
         user.getAccounts().add(newAccount);
 
         // Add a transaction for account creation
-        Transaction creationTransaction = new Transaction(timestamp, "New account created", "addAccount");
+        Transaction creationTransaction = new Transaction(timestamp,
+                "New account created", "addAccount");
         newAccount.addTransaction(creationTransaction);
 
         return newAccount;
-    }
-
-
-
-    /**
-     * Returnează lista tuturor utilizatorilor din sistem.
-     *
-     * @return Lista de utilizatori
-     */
-    public List<User> getAllUsers() {
-        return users;
     }
 
     /**
@@ -156,7 +143,7 @@ public class UserService {
      * @param amount Suma de adăugat
      * @throws IllegalArgumentException Dacă IBAN-ul nu există sau suma este invalidă
      */
-    public void addFundsToAccount(String iban, double amount) {
+    public void addFundsToAccount(final String iban, final double amount) {
         if (amount < 0) {
             throw new IllegalArgumentException("Suma de adăugat trebuie să fie pozitivă.");
         }
@@ -166,7 +153,6 @@ public class UserService {
             for (Account account : user.getAccounts()) {
                 if (account.getIban().equals(iban)) {
                     account.setBalance(account.getBalance() + amount);
-                    System.out.println("Fonduri adăugate: " + amount + " în contul cu IBAN-ul: " + iban);
                     return;
                 }
             }
@@ -180,14 +166,14 @@ public class UserService {
      *
      * @param email     Email-ul utilizatorului care solicită crearea
      * @param iban      IBAN-ul contului asociat cardului
-     * @param cardType  Tipul cardului: "regular" sau "one-time"
-     * @return Cardul creat
-     * @throws IllegalArgumentException Dacă utilizatorul sau contul nu sunt găsite sau cardType este invalid
+     * @throws IllegalArgumentException Dacă utilizatorul sau contul
+     * nu sunt găsite sau cardType este invalid
      */
-    public void createCardForAccount(String email, String iban, String cardType) {
+    public void createCardForAccount(final String email, final String iban,
+                                     final int timestamp) {
         User user = findUserByEmail(email);
         if (user == null) {
-            throw new IllegalArgumentException("User not found: " + email);
+            return;
         }
 
         Account account = user.getAccounts().stream()
@@ -198,9 +184,16 @@ public class UserService {
         String cardNumber = Utils.generateCardNumber();
         Card card = new Card(cardNumber, iban);
         account.addCard(card);
+        Transaction newTransaction = new Transaction("New card created", timestamp, cardNumber,
+                email, iban);
+        account.addTransaction(newTransaction);
     }
 
-    public void createOneTimeCard(String email, String iban) {
+    /**
+     * javadoc
+     */
+    public void createOneTimeCard(final String email, final String iban,
+                                  final int timestamp) {
         User user = findUserByEmail(email);
         if (user == null) {
             throw new IllegalArgumentException("User not found: " + email);
@@ -214,10 +207,15 @@ public class UserService {
         String cardNumber = Utils.generateCardNumber();
         OneTimeCard oneTimeCard = new OneTimeCard(cardNumber, iban);
         account.addCard(oneTimeCard);
+        Transaction newTransaction = new Transaction("New card created", timestamp, cardNumber,
+                email, iban);
+        account.addTransaction(newTransaction);
     }
 
-
-    public ArrayNode getUsersSnapshot(ObjectMapper objectMapper) {
+    /**
+     * javadoc
+     */
+    public ArrayNode getUsersSnapshot(final ObjectMapper objectMapper) {
         ArrayNode usersArray = objectMapper.createArrayNode();
         for (User user : users) {
             ObjectNode userNode = objectMapper.createObjectNode();
@@ -252,7 +250,10 @@ public class UserService {
         return usersArray;
     }
 
-    public void deleteAccount(String email, String iban) {
+    /**
+     * javadoc
+     */
+    public void deleteAccount(final String email, final String iban) {
         // Găsim utilizatorul după email
         User user = findUserByEmail(email);
         if (user == null) {
@@ -276,10 +277,13 @@ public class UserService {
         // Ștergem contul din lista utilizatorului
         user.getAccounts().remove(account);
 
-        System.out.println("Account with IBAN " + iban + " deleted for user " + email);
     }
 
-    public void deleteCard(String email, String cardNumber, int timestamp) {
+    /**
+     * javadoc
+     */
+    public void deleteCard(final String email, final String cardNumber,
+                           final int timestamp) {
         if (cardNumber == null || cardNumber.isEmpty()) {
             throw new IllegalArgumentException("Invalid card number: " + cardNumber);
         }
@@ -297,7 +301,8 @@ public class UserService {
 
             if (cardToDelete != null) {
                 account.getCards().remove(cardToDelete);
-                account.addTransaction(new Transaction(timestamp, "Card " + cardNumber + " deleted", "deleteCard"));
+                account.addTransaction(new Transaction("deleteCard", timestamp, cardNumber,
+                        email));
                 return;
             }
         }
@@ -305,7 +310,11 @@ public class UserService {
         throw new IllegalArgumentException("Card not found: " + cardNumber);
     }
 
-    public void setMinBalance(String iban, double minBalance, int timestamp) {
+    /**
+     * javadoc
+     */
+    public void setMinBalance(final String iban, final double minBalance,
+                              final int timestamp) {
         // Find the account by IBAN
         Account account = findAccountByIBAN(iban);
         if (account == null) {
@@ -316,14 +325,21 @@ public class UserService {
         account.setMinBalance(minBalance);
 
         // Add a transaction to record the operation
-        account.addTransaction(new Transaction(timestamp, "Minimum balance set to " + minBalance, "setMinBalance"));
+        account.addTransaction(new Transaction(timestamp, "Minimum balance set to " + minBalance,
+                "setMinBalance"));
     }
 
-    public void payOnline(String email, String cardNumber, double amount, String currency,
-                          int timestamp, String description, String commerciant) {
+    /**
+     * javadoc
+     */
+    public void payOnline(final String email, final String cardNumber,
+                          final double amount, final String currency,
+                          final int timestamp, final String commerciant) {
         try {
             User user = findUserByEmail(email);
-            if (user == null) throw new IllegalArgumentException("User not found: " + email);
+            if (user == null) {
+                throw new IllegalArgumentException("User not found: " + email);
+            }
 
             for (Account account : user.getAccounts()) {
                 for (Card card : account.getCards()) {
@@ -335,10 +351,12 @@ public class UserService {
                         // Conversie valutară
                         double convertedAmount = currency.equals(account.getCurrency())
                                 ? amount
-                                : currencyExchangeService.convert(currency, account.getCurrency(), amount);
+                                : currencyExchangeService.convert(currency,
+                                account.getCurrency(), amount);
 
                         if (account.getBalance() < convertedAmount) {
-                            account.addTransaction(new Transaction(timestamp, "Insufficient funds", "payOnline"));
+                            account.addTransaction(new Transaction(timestamp,
+                                    "Insufficient funds", "payOnline"));
                             return;
                         }
 
@@ -346,8 +364,8 @@ public class UserService {
                         account.setBalance(account.getBalance() - convertedAmount);
 
                         // Adăugăm tranzacție
-                        account.addTransaction(new Transaction(timestamp, "Card payment",
-                                commerciant, cardNumber,"payOnline"));
+                        account.addTransaction(new Transaction(timestamp,
+                                "Card payment", convertedAmount, commerciant));
 
                         return;
                     }
@@ -359,9 +377,10 @@ public class UserService {
         }
     }
 
-
-
-    public String checkCardStatus(String cardNumber, int timestamp) {
+    /**
+     * javadoc
+     */
+    public String checkCardStatus(final String cardNumber) {
         // Search through all users and their accounts to find the card
         for (User user : users) {
             for (Account account : user.getAccounts()) {
@@ -373,7 +392,7 @@ public class UserService {
                         // Frozen case
                         if (balance <= minBalance) {
                             card.setStatus("frozen");
-                            return "frozen";
+                            return "The card is frozen";
                         }
 
                         // Warning case
@@ -392,8 +411,12 @@ public class UserService {
         throw new IllegalArgumentException("Card not found: " + cardNumber);
     }
 
-    public void sendMoney(String senderIBAN, double amount, String receiverIBANOrAlias,
-                          int timestamp, String description, String senderEmail) {
+    /**
+     * javadoc
+     */
+    public void sendMoney(final String senderIBAN, final double amount,
+                          final String receiverIBANOrAlias, final int timestamp,
+                          final String description, final String senderEmail) {
         // Găsim utilizatorul expeditor
         User senderUser = findUserByEmail(senderEmail);
         if (senderUser == null) {
@@ -419,7 +442,9 @@ public class UserService {
 
         // Verificăm dacă expeditorul are suficiente fonduri
         if (senderAccount.getBalance() < amount) {
-            return; // Nu facem nimic dacă nu are fonduri suficiente
+            Transaction newTransaction = new Transaction("Insufficient funds", timestamp);
+            senderAccount.addTransaction(newTransaction);
+            return;
         }
 
         // Efectuăm conversia valutară
@@ -458,12 +483,13 @@ public class UserService {
 
 
     /**
-     * Metodă care caută un alias în toate aliasurile utilizatorilor și returnează IBAN-ul corespunzător.
+     * Metodă care caută un alias în toate aliasurile utilizatorilor
+     * și returnează IBAN-ul corespunzător.
      *
      * @param aliasOrIBAN String care poate fi fie un alias, fie un IBAN valid.
      * @return IBAN-ul asociat aliasului dacă este găsit, altfel întoarce aliasOrIBAN inițial.
      */
-    private String resolveAliasGlobally(String aliasOrIBAN) {
+    private String resolveAliasGlobally(final String aliasOrIBAN) {
         // Verificăm dacă este un alias căutat printre toți utilizatorii
         for (User user : users) {
             String iban = user.getIBANForAlias(aliasOrIBAN);
@@ -475,33 +501,17 @@ public class UserService {
         return aliasOrIBAN;
     }
 
-
-
-
-
-    private boolean isIBAN(String receiverIBANOrAlias) {
-        return receiverIBANOrAlias.matches("^[A-Z]{2}[0-9]{2}[A-Z]{4}[0-9]{16}$");
-    }
-
-
-    private User findUserByIBAN(String senderIBAN) {
-        for (User user : users) {
-            for (Account account : user.getAccounts()) {
-                if (account.getIban().equals(senderIBAN)) {
-                    return user;
-                }
-            }
-        }
-        return null;
-    }
-
-
-    public void setAlias(String email, String alias, String accountIBAN) {
+    /**
+     * javadoc
+     */
+    public void setAlias(final String email, final String alias,
+                         final String accountIBAN) {
         User user = findUserByEmail(email);
 
         // Verificăm existența utilizatorului
         if (user == null) {
-            throw new IllegalArgumentException("Utilizatorul nu există pentru email-ul specificat: " + email);
+            throw new IllegalArgumentException("Utilizatorul nu există"
+                    + "pentru email-ul specificat: " + email);
         }
 
         // Verificăm dacă IBAN-ul există printre conturile utilizatorului
@@ -511,29 +521,18 @@ public class UserService {
                 .orElse(null);
 
         if (account == null) {
-            throw new IllegalArgumentException("Contul cu IBAN-ul specificat nu există: " + accountIBAN);
+            throw new IllegalArgumentException("Contul cu IBAN-ul"
+                    + "specificat nu există: " + accountIBAN);
         }
 
         // Adăugăm alias-ul (suprascrie alias-ul existent, dacă este cazul)
         user.getAliases().put(alias, accountIBAN);
     }
 
-
-    public List<Transaction> getTransactions(String email) {
-        User user = findUserByEmail(email);
-        if (user == null) {
-            throw new IllegalArgumentException("User not found: " + email);
-        }
-
-        List<Transaction> allTransactions = new ArrayList<>();
-        for (Account account : user.getAccounts()) {
-            allTransactions.addAll(account.getTransactions());
-        }
-
-        return allTransactions;
-    }
-
-    public void addInterest(String iban, int timestamp) {
+    /**
+     * javadoc
+     */
+    public void addInterest(final String iban, final int timestamp) {
         Account account = findAccountByIBAN(iban);
 
         // Verificăm dacă IBAN-ul este valid
@@ -542,11 +541,10 @@ public class UserService {
         }
 
         // Verificăm dacă este un cont de economii
-        if (!(account instanceof SavingsAccount)) {
-            throw new IllegalArgumentException("Dobânda poate fi aplicată doar conturilor de economii.");
+        if (!(account instanceof SavingsAccount savingsAccount)) {
+            throw new IllegalArgumentException("Dobânda poate fi aplicată doar "
+                    + "conturilor de economii.");
         }
-
-        SavingsAccount savingsAccount = (SavingsAccount) account;
 
         // Calculăm dobânda și o adăugăm la balanță
         double interest = savingsAccount.getBalance() * savingsAccount.getInterestRate() / 100;
@@ -565,12 +563,50 @@ public class UserService {
         ));
     }
 
-    public boolean isAlias(String senderIBAN) {
+    /**
+     * javadoc
+     */
+    public void splitPayment(final CommandInput command) {
+        double convertedSplitSum;
+        double splitSum = command.getAmount() / command.getAccounts().size();
+        String description = "Split payment of " + String.format("%.2f", command.getAmount())
+                + " " + command.getCurrency();
+        Transaction newTransaction = new Transaction(command.getTimestamp(), description,
+                command.getCurrency(), splitSum, command.getAccounts());
+
         for (User user : users) {
-            if (user.hasAlias(senderIBAN)) {
-                return true;
+            for (Account account : user.getAccounts()) {
+                if (command.getAccounts().contains(account.getIban())) {
+                    if (account.getBalance() < splitSum) {
+                        account.addTransaction(new Transaction("Insufficient funds",
+                                command.getTimestamp()));
+                    } else {
+                        convertedSplitSum = currencyExchangeService.convert(command.getCurrency(),
+                                account.getCurrency(), splitSum);
+                        account.setBalance(account.getBalance() - convertedSplitSum);
+                        account.addTransaction(newTransaction);
+                    }
+                }
             }
         }
-        return false;
+    }
+
+    /**
+     * javadoc
+     */
+    public void generateReport(final CommandInput command) {
+        Account currAccount = null;
+
+        for (User user : users) {
+            for (Account account : user.getAccounts()) {
+                if (command.getAccount().equals(account.getIban())) {
+                    currAccount = account;
+                }
+            }
+        }
+
+        if (currAccount == null) {
+            throw new IllegalArgumentException("Account not found");
+        }
     }
 }
