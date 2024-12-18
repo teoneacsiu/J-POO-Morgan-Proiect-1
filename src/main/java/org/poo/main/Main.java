@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.poo.checker.Checker;
 import org.poo.checker.CheckerConstants;
+import org.poo.command.Command;
+import org.poo.command.DeleteCardCommand;
 import org.poo.fileio.ExchangeInput;
 import org.poo.fileio.ObjectInput;
 import org.poo.model.Account;
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.SQLOutput;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -143,21 +146,36 @@ public final class Main {
                         );
                     }
                     case "deleteAccount" -> {
-                        userService.deleteAccount(
-                                command.getEmail(),
-                                command.getAccount()
-                        );
+                        try {
+                            userService.deleteAccount(
+                                    command.getEmail(),
+                                    command.getAccount()
+                            );
 
-                        // Add success message to the output
-                        var successNode = objectMapper.createObjectNode();
-                        successNode.put("command", "deleteAccount");
-                        var outputNode = objectMapper.createObjectNode();
-                        outputNode.put("success", "Account deleted");
-                        outputNode.put("timestamp", command.getTimestamp());
-                        successNode.set("output", outputNode);
-                        successNode.put("timestamp", command.getTimestamp());
-                        output.add(successNode);
+                            // Add success message to the output
+                            var successNode = objectMapper.createObjectNode();
+                            successNode.put("command", "deleteAccount");
+                            var outputNode = objectMapper.createObjectNode();
+                            outputNode.put("success", "Account deleted");
+                            outputNode.put("timestamp", command.getTimestamp());
+                            successNode.set("output", outputNode);
+                            successNode.put("timestamp", command.getTimestamp());
+                            output.add(successNode);
+                        } catch (Exception e) {
+                            // Add error message to the output
+                            var errorNode = objectMapper.createObjectNode();
+                            errorNode.put("command", "deleteAccount");
+
+                            var outputNode = objectMapper.createObjectNode();
+                            outputNode.put("error", "Account couldn't be deleted - see org.poo.transactions for details");
+                            outputNode.put("timestamp", command.getTimestamp());
+
+                            errorNode.set("output", outputNode);
+                            errorNode.put("timestamp", command.getTimestamp());
+                            output.add(errorNode);
+                        }
                     }
+
                     case "createOneTimeCard" -> {
                         userService.createOneTimeCard(
                                 command.getEmail(),
@@ -166,14 +184,13 @@ public final class Main {
                     }
                     case "deleteCard" -> {
                         try {
-                            // Extract card number using Lombok-generated getter
-                            String cardNumber = command.getCardNumber();
-
-                            userService.deleteCard(
+                            Command deleteCardCommand = new DeleteCardCommand(
+                                    userService,
                                     command.getEmail(),
-                                    cardNumber,           // Use card number
+                                    command.getCardNumber(),
                                     command.getTimestamp()
                             );
+                            deleteCardCommand.execute();
                         } catch (Exception e) {
                             var errorNode = objectMapper.createObjectNode();
                             errorNode.put("status", "error");
@@ -182,6 +199,7 @@ public final class Main {
                             output.add(errorNode);
                         }
                     }
+
                     case "setMinimumBalance" -> {
                         try {
                             userService.setMinBalance(
@@ -199,7 +217,6 @@ public final class Main {
                     }
                     case "payOnline" -> {
                         try {
-                            // Attempt to execute the payOnline command
                             userService.payOnline(
                                     command.getEmail(),
                                     command.getCardNumber(),
@@ -210,19 +227,17 @@ public final class Main {
                                     command.getCommerciant()
                             );
                         } catch (Exception e) {
-                            // Add error to the output array only for valid exceptions
                             var errorNode = objectMapper.createObjectNode();
                             errorNode.put("command", "payOnline");
-
-                            // Format the error response
-                            var outputNode = errorNode.putObject("output");
+                            var outputNode = objectMapper.createObjectNode();
                             outputNode.put("timestamp", command.getTimestamp());
                             outputNode.put("description", e.getMessage());
-
+                            errorNode.set("output", outputNode);
                             errorNode.put("timestamp", command.getTimestamp());
                             output.add(errorNode);
                         }
                     }
+
                     case "checkCardStatus" -> {
                         try {
                             String status = userService.checkCardStatus(command.getCardNumber(), command.getTimestamp());
@@ -243,37 +258,25 @@ public final class Main {
                         }
                     }
                     case "sendMoney" -> {
-                        try {
-                            // Resolve sender account
-                            String senderAccount = userService.findAccountByAliasOrIBAN(command.getAccount()).getIban();
-                            if (senderAccount == null) {
-                                throw new IllegalArgumentException("Invalid sender account: " + command.getAccount());
-                            }
+                        // Încearcă efectuarea transferului fără a adăuga eroare în output
+                        Account senderAccount = userService.findAccountByAliasOrIBAN(command.getAccount());
+                        Account receiverAccount = userService.findAccountByAliasOrIBAN(command.getReceiver());
 
-                            // Resolve receiver account
-                            String receiverAccount = userService.findAccountByAliasOrIBAN(command.getReceiver()).getIban();
-                            if (receiverAccount == null) {
-                                throw new IllegalArgumentException("Invalid receiver account: " + command.getReceiver());
-                            }
-
-                            // Perform the money transfer
-                            userService.sendMoney(
-                                    command.getAccount(),
-                                    command.getAmount(),
-                                    command.getReceiver(),
-                                    command.getTimestamp(),
-                                    command.getDescription(),
-                                    command.getEmail()
-                            );
-                        } catch (Exception e) {
-                            // Handle errors by adding them to output
-                            var errorNode = objectMapper.createObjectNode();
-                            errorNode.put("status", "error");
-                            errorNode.put("command", "sendMoney");
-                            errorNode.put("message", e.getMessage());
-                            output.add(errorNode);
+                        if (senderAccount == null || receiverAccount == null) {
+                            // Dacă unul dintre conturi este invalid, ieșim pur și simplu fără a scrie nimic
+                            break;
                         }
+
+                        userService.sendMoney(
+                                command.getAccount(),
+                                command.getAmount(),
+                                command.getReceiver(),
+                                command.getTimestamp(),
+                                command.getDescription(),
+                                command.getEmail()
+                        );
                     }
+
                     case "setAlias" -> {
                         try {
                             userService.setAlias(command.getEmail(), command.getAlias(), command.getAccount());
@@ -287,34 +290,52 @@ public final class Main {
                     }
                     case "printTransactions" -> {
                         try {
+                            // Găsim utilizatorul pe baza email-ului
                             User user = userService.findUserByEmail(command.getEmail());
 
                             if (user == null) {
                                 throw new IllegalArgumentException("User not found.");
                             }
 
+                            // Inițializăm lista de tranzacții
                             ArrayNode transactionsOutput = objectMapper.createArrayNode();
+
+                            // Parcurgem toate conturile utilizatorului
                             for (Account account : user.getAccounts()) {
                                 for (Transaction transaction : account.getTransactions()) {
+                                    // Creăm un nod JSON pentru fiecare tranzacție
                                     ObjectNode transactionNode = objectMapper.createObjectNode();
 
-                                    // Special case for "New account created"
-                                    if ("New account created".equals(transaction.getDescription())) {
+                                    // Verificăm dacă tranzacția a fost generată de comanda deleteCard
+                                    if ("deleteCard".equals(transaction.getCommandType())) {
                                         transactionNode.put("timestamp", transaction.getTimestamp());
-                                        transactionNode.put("description", transaction.getDescription());
-                                    } else {
+                                        transactionNode.put("description", "The card has been destroyed");
+                                        transactionNode.put("card", transaction.getCardNumber());
+                                        transactionNode.put("cardHolder", user.getEmail());
+                                        transactionNode.put("account", account.getIban());
+                                    } else if ("Card payment".equals(transaction.getDescription())) {
+                                        transactionNode.put("timestamp", transaction.getTimestamp());
+                                        transactionNode.put("description", "Card payment");
+                                        transactionNode.put("amount", transaction.getAmount());
+                                        transactionNode.put("commerciant", transaction.getCommerciant());
+                                    } else if ("sent".equals(transaction.getTransferType()) || "received".equals(transaction.getTransferType())) {
                                         transactionNode.put("timestamp", transaction.getTimestamp());
                                         transactionNode.put("description", transaction.getDescription());
                                         transactionNode.put("senderIBAN", transaction.getSenderIBAN());
                                         transactionNode.put("receiverIBAN", transaction.getReceiverIBAN());
                                         transactionNode.put("amount", transaction.getAmount() + " " + transaction.getCurrency());
                                         transactionNode.put("transferType", transaction.getTransferType());
+                                    } else {
+                                        transactionNode.put("timestamp", transaction.getTimestamp());
+                                        transactionNode.put("description", transaction.getDescription());
                                     }
 
+                                    // Adăugăm tranzacția în lista de output
                                     transactionsOutput.add(transactionNode);
                                 }
                             }
 
+                            // Creăm nodul de output pentru comanda printTransactions
                             var outputNode = objectMapper.createObjectNode();
                             outputNode.put("command", "printTransactions");
                             outputNode.set("output", transactionsOutput);
@@ -322,6 +343,7 @@ public final class Main {
                             output.add(outputNode);
 
                         } catch (Exception e) {
+                            // Gestionăm orice erori care apar
                             var errorNode = objectMapper.createObjectNode();
                             errorNode.put("command", "printTransactions");
                             errorNode.putObject("output").put("description", e.getMessage());
@@ -329,6 +351,8 @@ public final class Main {
                             output.add(errorNode);
                         }
                     }
+
+
                     case "addInterest" -> {
                         try {
                             userService.addInterest(command.getAccount(), command.getTimestamp());

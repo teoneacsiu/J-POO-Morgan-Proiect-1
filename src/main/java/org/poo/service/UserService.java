@@ -132,7 +132,7 @@ public class UserService {
         user.getAccounts().add(newAccount);
 
         // Add a transaction for account creation
-        Transaction creationTransaction = new Transaction(timestamp, "New account created");
+        Transaction creationTransaction = new Transaction(timestamp, "New account created", "addAccount");
         newAccount.addTransaction(creationTransaction);
 
         return newAccount;
@@ -297,7 +297,7 @@ public class UserService {
 
             if (cardToDelete != null) {
                 account.getCards().remove(cardToDelete);
-                account.addTransaction(new Transaction(timestamp, "Card " + cardNumber + " deleted"));
+                account.addTransaction(new Transaction(timestamp, "Card " + cardNumber + " deleted", "deleteCard"));
                 return;
             }
         }
@@ -316,19 +316,14 @@ public class UserService {
         account.setMinBalance(minBalance);
 
         // Add a transaction to record the operation
-        account.addTransaction(new Transaction(timestamp, "Minimum balance set to " + minBalance));
+        account.addTransaction(new Transaction(timestamp, "Minimum balance set to " + minBalance, "setMinBalance"));
     }
 
-    public void payOnline(String email, String cardNumber, double amount, String currency, int timestamp, String description, String commerciant) {
+    public void payOnline(String email, String cardNumber, double amount, String currency,
+                          int timestamp, String description, String commerciant) {
         try {
-            if (amount <= 0) {
-                throw new IllegalArgumentException("Amount must be greater than 0.");
-            }
-
             User user = findUserByEmail(email);
-            if (user == null) {
-                throw new IllegalArgumentException("User not found: " + email);
-            }
+            if (user == null) throw new IllegalArgumentException("User not found: " + email);
 
             for (Account account : user.getAccounts()) {
                 for (Card card : account.getCards()) {
@@ -337,34 +332,34 @@ public class UserService {
                             throw new IllegalArgumentException("Card is frozen: " + cardNumber);
                         }
 
-                        double convertedAmount = amount;
-                        if (!account.getCurrency().equalsIgnoreCase(currency)) {
-                            convertedAmount = currencyExchangeService.convert(currency, account.getCurrency(), amount);
-                        }
+                        // Conversie valutară
+                        double convertedAmount = currency.equals(account.getCurrency())
+                                ? amount
+                                : currencyExchangeService.convert(currency, account.getCurrency(), amount);
 
                         if (account.getBalance() < convertedAmount) {
-                            account.addTransaction(new Transaction(
-                                    timestamp,
-                                    "Insufficient funds for payment: " + description
-                            ));
+                            account.addTransaction(new Transaction(timestamp, "Insufficient funds", "payOnline"));
                             return;
                         }
 
-
+                        // Debităm balanța
                         account.setBalance(account.getBalance() - convertedAmount);
-                        account.addTransaction(new Transaction(timestamp, "Payment to " + commerciant + ": " + description + ", amount: " + amount + " " + currency));
-                        if (card instanceof OneTimeCard) {
-                            ((OneTimeCard) card).setUsed(true);
-                        }
-                        return; // Exit after successful payment
+
+                        // Adăugăm tranzacție
+                        account.addTransaction(new Transaction(timestamp, "Card payment",
+                                commerciant, cardNumber,"payOnline"));
+
+                        return;
                     }
                 }
             }
             throw new IllegalArgumentException("Card not found");
         } catch (Exception e) {
-            throw new IllegalArgumentException("" + e.getMessage());
+            throw new IllegalArgumentException(e.getMessage());
         }
     }
+
+
 
     public String checkCardStatus(String cardNumber, int timestamp) {
         // Search through all users and their accounts to find the card
@@ -397,54 +392,48 @@ public class UserService {
         throw new IllegalArgumentException("Card not found: " + cardNumber);
     }
 
-    public void sendMoney(String senderIBANOrAlias, double amount, String receiverIBANOrAlias,
+    public void sendMoney(String senderIBAN, double amount, String receiverIBANOrAlias,
                           int timestamp, String description, String senderEmail) {
-        // Find the sender user
+        // Găsim utilizatorul expeditor
         User senderUser = findUserByEmail(senderEmail);
         if (senderUser == null) {
-            return;
+            return; // Nu facem nimic
         }
 
-        // Resolve sender IBAN
-        boolean isSenderAlias = senderUser.hasAlias(senderIBANOrAlias);
-        String resolvedSenderIBAN = isSenderAlias ? senderUser.getIBANForAlias(senderIBANOrAlias) : senderIBANOrAlias;
-
-        Account senderAccount = findAccountByIBAN(resolvedSenderIBAN);
+        // Găsim contul expeditorului folosind IBAN
+        Account senderAccount = findAccountByIBAN(senderIBAN);
         if (senderAccount == null) {
-            return;
+            return; // Nu facem nimic
         }
 
-        // Resolve receiver IBAN
-        boolean isReceiverAlias = senderUser.hasAlias(receiverIBANOrAlias);
-        String resolvedReceiverIBAN = isReceiverAlias ? senderUser.getIBANForAlias(receiverIBANOrAlias) : receiverIBANOrAlias;
+        // Rezolvăm IBAN-ul destinatarului (alias sau IBAN valid)
+        String resolvedReceiverIBAN = resolveAliasGlobally(receiverIBANOrAlias);
+        if (resolvedReceiverIBAN == null || resolvedReceiverIBAN.isEmpty()) {
+            return; // Dacă IBAN-ul nu este găsit, ieșim fără să scriem nimic
+        }
 
         Account receiverAccount = findAccountByIBAN(resolvedReceiverIBAN);
         if (receiverAccount == null) {
-            return;
+            return; // Dacă contul destinatarului nu există, ieșim fără să scriem nimic
         }
 
-        // Block transactions if one uses an alias and the other uses an IBAN
-        if ((isSenderAlias && !isReceiverAlias) || (!isSenderAlias && isReceiverAlias)) {
-            return;
-        }
-
-        // Check if sender has sufficient funds
+        // Verificăm dacă expeditorul are suficiente fonduri
         if (senderAccount.getBalance() < amount) {
-            return;
+            return; // Nu facem nimic dacă nu are fonduri suficiente
         }
 
-        // Perform currency conversion
+        // Efectuăm conversia valutară
         double convertedAmount = currencyExchangeService.convert(
                 senderAccount.getCurrency(),
                 receiverAccount.getCurrency(),
                 amount
         );
 
-        // Perform the transfer
+        // Realizăm transferul
         senderAccount.setBalance(senderAccount.getBalance() - amount);
         receiverAccount.setBalance(receiverAccount.getBalance() + convertedAmount);
 
-        // Log the transaction for both accounts
+        // Înregistrăm tranzacțiile pentru ambele conturi
         senderAccount.addTransaction(new Transaction(
                 timestamp,
                 description,
@@ -452,7 +441,8 @@ public class UserService {
                 receiverAccount.getIban(),
                 amount,
                 senderAccount.getCurrency(),
-                "sent"
+                "sent",
+                receiverIBANOrAlias
         ));
         receiverAccount.addTransaction(new Transaction(
                 timestamp,
@@ -461,9 +451,31 @@ public class UserService {
                 receiverAccount.getIban(),
                 convertedAmount,
                 receiverAccount.getCurrency(),
-                "received"
+                "received",
+                senderIBAN
         ));
     }
+
+
+    /**
+     * Metodă care caută un alias în toate aliasurile utilizatorilor și returnează IBAN-ul corespunzător.
+     *
+     * @param aliasOrIBAN String care poate fi fie un alias, fie un IBAN valid.
+     * @return IBAN-ul asociat aliasului dacă este găsit, altfel întoarce aliasOrIBAN inițial.
+     */
+    private String resolveAliasGlobally(String aliasOrIBAN) {
+        // Verificăm dacă este un alias căutat printre toți utilizatorii
+        for (User user : users) {
+            String iban = user.getIBANForAlias(aliasOrIBAN);
+            if (iban != null) {
+                return iban;
+            }
+        }
+        // Dacă nu este un alias, returnăm valoarea inițială (presupunem că e un IBAN)
+        return aliasOrIBAN;
+    }
+
+
 
 
 
@@ -548,7 +560,8 @@ public class UserService {
                 savingsAccount.getIban(),
                 interest,
                 savingsAccount.getCurrency(),
-                "interest"
+                "interest",
+                null
         ));
     }
 
