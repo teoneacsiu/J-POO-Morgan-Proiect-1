@@ -9,6 +9,10 @@ public class CurrencyExchangeService {
 
     /**
      * Add an exchange rate (direct and reverse)
+     *
+     * @param from the currency to convert from
+     * @param to the currency to convert to
+     * @param rate the exchange rate
      */
     public void addExchangeRate(final String from, final String to,
                                 final double rate) {
@@ -21,6 +25,10 @@ public class CurrencyExchangeService {
 
     /**
      * Convert an amount from one currency to another
+     *
+     * @param from the currency to convert from
+     * @param to the currency to convert to
+     * @param amount the amount to convert
      */
     public double convert(final String from, final String to,
                           final double amount) {
@@ -41,6 +49,11 @@ public class CurrencyExchangeService {
 
     /**
      * DFS to find conversion ratio
+     *
+     * @param current the current currency
+     * @param target the target currency
+     * @param currentAmount the current amount
+     * @param visited the set of visited currencies
      */
     private Double dfsConvert(final String current, final String target,
                               final double currentAmount, final Set<String> visited) {

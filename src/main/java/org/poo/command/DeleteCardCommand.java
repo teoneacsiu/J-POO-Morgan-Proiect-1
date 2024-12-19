@@ -3,7 +3,7 @@ package org.poo.command;
 import org.poo.service.UserService;
 
 /**
- * Comandă pentru ștergerea unui card.
+ * Command to delete a card.
  */
 public class DeleteCardCommand implements Command {
 
@@ -12,6 +12,14 @@ public class DeleteCardCommand implements Command {
     private final String cardNumber;
     private final int timestamp;
 
+    /**
+     * Constructs a DeleteCardCommand instance.
+     *
+     * @param userService the user service to handle the command
+     * @param email the email of the user
+     * @param cardNumber the card number to be deleted
+     * @param timestamp the timestamp of the command
+     */
     public DeleteCardCommand(final UserService userService, final String email,
                              final String cardNumber, final int timestamp) {
         this.userService = userService;
@@ -20,15 +28,8 @@ public class DeleteCardCommand implements Command {
         this.timestamp = timestamp;
     }
 
-    /**
-     * javadoc
-     */
     @Override
     public void execute() {
-        try {
-            userService.deleteCard(email, cardNumber, timestamp);
-        } catch (IllegalArgumentException e) {
-            System.err.println("Eroare la ștergerea cardului: " + e.getMessage());
-        }
+        userService.deleteCard(email, cardNumber, timestamp);
     }
 }

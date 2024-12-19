@@ -1,7 +1,7 @@
 package org.poo.command;
 
 /**
- * Interfață pentru toate comenzile.
+ * An interface to include all the commands that can be executed.
  */
 public interface Command {
     /**

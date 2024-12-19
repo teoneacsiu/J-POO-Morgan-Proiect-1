@@ -9,10 +9,14 @@ public class OneTimeCard extends Card {
     public OneTimeCard(final String cardNumber, final String iban) {
         super(cardNumber, iban);
         this.used = false;
+        setOneTime(true);
     }
 
     /**
-     * javadoc
+     * Marks the card as used and returns the updated status.
+     *
+     * @param b a boolean value indicating the card's new usage state (not used).
+     * @return true if the card is marked as used, false otherwise.
      */
     public boolean setUsed(final boolean b) {
         this.used = true;
@@ -20,22 +24,12 @@ public class OneTimeCard extends Card {
     }
 
     /**
-     * javadoc
+     * Returns the status of the card.
+     *
+     * @return "used" if the card has been used, otherwise "active".
      */
     @Override
     public String getStatus() {
         return used ? "used" : "active";
-    }
-
-    /**
-     * Use the card for a transaction. Once used, the card is marked as "used."
-     * @throws IllegalStateException if the card has already been used.
-     */
-    public void useCard() {
-        if (used) {
-            throw new IllegalStateException("One-time card has already been used: "
-                    + getCardNumber());
-        }
-        this.setUsed(true);
     }
 }

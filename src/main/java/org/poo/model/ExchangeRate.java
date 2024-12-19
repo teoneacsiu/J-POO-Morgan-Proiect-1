@@ -5,8 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Reprezintă un curs valutar unidirecțional:
- *  de la o monedă (from) la alta monedă (to) cu rata 'rate'.
+ * Represents a unidirectional exchange rate:
+ * from one currency (from) to another currency (to) with a specific 'rate'.
  */
 @Getter
 @Setter

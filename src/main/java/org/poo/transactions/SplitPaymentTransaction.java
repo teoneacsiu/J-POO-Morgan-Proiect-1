@@ -16,6 +16,15 @@ public class SplitPaymentTransaction extends Transaction {
     private final List<String> accountList;
     private String error;
 
+    /**
+     * Constructs a SplitPaymentTransaction instance.
+     *
+     * @param timestamp   the timestamp of the transaction
+     * @param description a description of the transaction
+     * @param currency    the currency of the payment
+     * @param sum         the total amount to be split
+     * @param accountList the list of accounts involved in the split payment
+     */
     public SplitPaymentTransaction(final int timestamp, final String description,
                                    final String currency, final double sum,
                                    final List<String> accountList) {
@@ -23,8 +32,14 @@ public class SplitPaymentTransaction extends Transaction {
         this.currency = currency;
         this.sum = sum;
         this.accountList = accountList;
+        setType(TransactionType.SPLIT_PAYMENT);
     }
 
+    /**
+     * Converts the transaction details into a JSON representation.
+     *
+     * @return an ObjectNode containing the transaction details
+     */
     @Override
     public ObjectNode toJson() {
         ObjectMapper mapper = new ObjectMapper();

@@ -4,20 +4,34 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="14fdf505-5352-4ed5-8702-6208de2154ce" name="Changes" comment="New bugs solved, next in plan is to implement split payments.">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/Report.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/CreateCardTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/DeleteCardTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/InterestTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/PayOnlineTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SendMoneyTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SplitPaymentTransaction.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/Transaction.java" afterDir="false" />
+    <list default="true" id="14fdf505-5352-4ed5-8702-6208de2154ce" name="Changes" comment="Code refactor (Transaction) + change SplitPayment logic">
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/account/Account.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/account/SavingsAccount.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/SpendingsReport.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/TransactionType.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/checkstyle.txt" beforeDir="false" afterPath="$PROJECT_DIR$/checkstyle.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/command/AddAccountCommand.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/command/AddFundsCommand.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/command/Command.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/command/Command.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/command/DeleteCardCommand.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/command/DeleteCardCommand.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/main/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/main/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/Account.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/Account.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/Transaction.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/Account.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/Card.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/Card.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/ExchangeRate.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/ExchangeRate.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/OneTimeCard.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/OneTimeCard.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/Report.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/Report.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/SavingsAccount.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/model/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/service/CurrencyExchangeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/service/CurrencyExchangeService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/CreateCardTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/CreateCardTransaction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/DeleteCardTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/DeleteCardTransaction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/InterestTransaction.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/PayOnlineTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/PayOnlineTransaction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SendMoneyTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SendMoneyTransaction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SplitPaymentTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/SplitPaymentTransaction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/poo/transactions/Transaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/poo/transactions/Transaction.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,10 +63,10 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="file://$PROJECT_DIR$/input/test18_large_input_1.json" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/input/test18_large_input_1.json" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="DEPENDENCY_CHECKER_PROBLEMS_TAB" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
@@ -63,23 +77,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Application.Main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/teobe/Downloads/oop-pub oop-asignments master teme-J-POO-Morgan-Proiect-1 (1)_1",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
-    "two.files.diff.last.used.file": "C:/Users/teobe/Downloads/oop-pub oop-asignments master teme-J-POO-Morgan-Proiect-1 (1)/result/out_test09_print_transactions.json",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.Main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/teobe/Downloads/oop-pub oop-asignments master teme-J-POO-Morgan-Proiect-1 (1)_2&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
+    &quot;two.files.diff.last.used.file&quot;: &quot;C:/Users/teobe/Downloads/oop-pub oop-asignments master teme-J-POO-Morgan-Proiect-1 (1)/result/out_test09_print_transactions.json&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="Main" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="org.poo.main.Main" />
@@ -139,7 +153,8 @@
       <workItem from="1734362090616" duration="10436000" />
       <workItem from="1734450444659" duration="10933000" />
       <workItem from="1734480284655" duration="1842000" />
-      <workItem from="1734541256812" duration="15787000" />
+      <workItem from="1734541256812" duration="17423000" />
+      <workItem from="1734612136140" duration="7442000" />
     </task>
     <task id="LOCAL-00001" summary="Tests 9 works, still working on little bugs">
       <option name="closed" value="true" />
@@ -165,7 +180,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734548086711</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Code refactor (Transaction) + change SplitPayment logic">
+      <option name="closed" value="true" />
+      <created>1734574112097</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1734574112097</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -175,6 +198,7 @@
     <MESSAGE value="Tests 9 works, still working on little bugs" />
     <MESSAGE value="New implementation for test 9, the last push had problems afterwards" />
     <MESSAGE value="New bugs solved, next in plan is to implement split payments." />
-    <option name="LAST_COMMIT_MESSAGE" value="New bugs solved, next in plan is to implement split payments." />
+    <MESSAGE value="Code refactor (Transaction) + change SplitPayment logic" />
+    <option name="LAST_COMMIT_MESSAGE" value="Code refactor (Transaction) + change SplitPayment logic" />
   </component>
 </project>

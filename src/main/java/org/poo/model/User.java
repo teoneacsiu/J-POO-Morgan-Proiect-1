@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import org.poo.account.Account;
+import org.poo.transactions.Transaction;
 
 @Getter
 @Setter
@@ -16,11 +18,15 @@ public class User {
 
     private List<Account> accounts = new ArrayList<>(); // List of accounts
     private Map<String, String> aliases = new HashMap<>(); // Map to store aliases
+    private List<Transaction> transactions = new ArrayList<>();
 
-    public User() {
-        // Default constructor
-    }
-
+    /**
+     * Constructs a User instance.
+     *
+     * @param firstName the first name of the user
+     * @param lastName the last name of the user
+     * @param email the email of the user
+     */
     public User(final String firstName, final String lastName,
                 final String email) {
         this.firstName = firstName;
@@ -56,5 +62,14 @@ public class User {
      */
     public boolean hasAlias(final String alias) {
         return aliases.containsKey(alias);
+    }
+
+    /**
+     * Add a transaction to the account
+     *
+     * @param transaction the transaction to be added
+     */
+    public void addTransaction(final Transaction transaction) {
+        transactions.add(transaction);
     }
 }

@@ -13,10 +13,17 @@ public class Report {
     private double balance;
     private String currency;
 
-    public Report(List<Transaction> transactions, double balance, String currency) {
+    /**
+     * Constructs a Report instance.
+     *
+     * @param transactions the list of transactions included in the report
+     * @param balance the balance of the account at the time of the report
+     * @param currency the currency of the account
+     */
+    public Report(final List<Transaction> transactions,
+                  final double balance, final String currency) {
         this.transactions = transactions;
         this.balance = balance;
         this.currency = currency;
     }
-
 }
