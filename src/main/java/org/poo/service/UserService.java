@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.poo.fileio.CommandInput;
 import org.poo.model.*;
+import org.poo.transactions.*;
 import org.poo.utils.Utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -129,8 +131,8 @@ public class UserService {
         user.getAccounts().add(newAccount);
 
         // Add a transaction for account creation
-        Transaction creationTransaction = new Transaction(timestamp,
-                "New account created", "addAccount");
+        Transaction creationTransaction = new Transaction("New account created",
+                timestamp);
         newAccount.addTransaction(creationTransaction);
 
         return newAccount;
@@ -184,8 +186,8 @@ public class UserService {
         String cardNumber = Utils.generateCardNumber();
         Card card = new Card(cardNumber, iban);
         account.addCard(card);
-        Transaction newTransaction = new Transaction("New card created", timestamp, cardNumber,
-                email, iban);
+        Transaction newTransaction = new CreateCardTransaction(cardNumber, email, iban,
+                timestamp, "New card created");
         account.addTransaction(newTransaction);
     }
 
@@ -207,8 +209,8 @@ public class UserService {
         String cardNumber = Utils.generateCardNumber();
         OneTimeCard oneTimeCard = new OneTimeCard(cardNumber, iban);
         account.addCard(oneTimeCard);
-        Transaction newTransaction = new Transaction("New card created", timestamp, cardNumber,
-                email, iban);
+        Transaction newTransaction = new CreateCardTransaction(cardNumber, email, iban,
+                timestamp, "New card created");
         account.addTransaction(newTransaction);
     }
 
@@ -253,7 +255,7 @@ public class UserService {
     /**
      * javadoc
      */
-    public void deleteAccount(final String email, final String iban) {
+    public void deleteAccount(final String email, final String iban, final int timestamp) {
         // Găsim utilizatorul după email
         User user = findUserByEmail(email);
         if (user == null) {
@@ -268,6 +270,7 @@ public class UserService {
 
         // Verificăm dacă balanța este 0
         if (account.getBalance() != 0.0) {
+            account.addTransaction(new Transaction("Account couldn't be deleted - there are funds remaining", timestamp));
             throw new IllegalArgumentException("Account cannot be deleted: balance is not zero.");
         }
 
@@ -301,8 +304,7 @@ public class UserService {
 
             if (cardToDelete != null) {
                 account.getCards().remove(cardToDelete);
-                account.addTransaction(new Transaction("deleteCard", timestamp, cardNumber,
-                        email));
+                account.addTransaction(new DeleteCardTransaction(email, cardNumber, timestamp));
                 return;
             }
         }
@@ -313,8 +315,7 @@ public class UserService {
     /**
      * javadoc
      */
-    public void setMinBalance(final String iban, final double minBalance,
-                              final int timestamp) {
+    public void setMinBalance(final String iban, final double minBalance) {
         // Find the account by IBAN
         Account account = findAccountByIBAN(iban);
         if (account == null) {
@@ -323,10 +324,6 @@ public class UserService {
 
         // Set the minimum balance for the account
         account.setMinBalance(minBalance);
-
-        // Add a transaction to record the operation
-        account.addTransaction(new Transaction(timestamp, "Minimum balance set to " + minBalance,
-                "setMinBalance"));
     }
 
     /**
@@ -345,7 +342,10 @@ public class UserService {
                 for (Card card : account.getCards()) {
                     if (card.getCardNumber().equals(cardNumber)) {
                         if (card.getStatus().equalsIgnoreCase("frozen")) {
-                            throw new IllegalArgumentException("Card is frozen: " + cardNumber);
+                            Transaction newTransaction =
+                                    new Transaction("The card is frozen", timestamp);
+                            account.addTransaction(newTransaction);
+                            return;
                         }
 
                         // Conversie valutară
@@ -355,8 +355,16 @@ public class UserService {
                                 account.getCurrency(), amount);
 
                         if (account.getBalance() < convertedAmount) {
-                            account.addTransaction(new Transaction(timestamp,
-                                    "Insufficient funds", "payOnline"));
+                            account.addTransaction(new Transaction("Insufficient funds",
+                                    timestamp));
+                            return;
+                        }
+
+                        if (account.getBalance() - convertedAmount < account.getMinBalance()) {
+                            card.setStatus("frozen");
+                            Transaction newTransaction =
+                                    new Transaction("The card is frozen", timestamp);
+                            account.addTransaction(newTransaction);
                             return;
                         }
 
@@ -364,8 +372,8 @@ public class UserService {
                         account.setBalance(account.getBalance() - convertedAmount);
 
                         // Adăugăm tranzacție
-                        account.addTransaction(new Transaction(timestamp,
-                                "Card payment", convertedAmount, commerciant));
+                        account.addTransaction(new PayOnlineTransaction(convertedAmount,
+                                commerciant, "Card payment", timestamp));
 
                         return;
                     }
@@ -380,7 +388,7 @@ public class UserService {
     /**
      * javadoc
      */
-    public String checkCardStatus(final String cardNumber) {
+    public boolean checkCardStatus(final String cardNumber, final int timestamp) {
         // Search through all users and their accounts to find the card
         for (User user : users) {
             for (Account account : user.getAccounts()) {
@@ -389,26 +397,30 @@ public class UserService {
                         double balance = account.getBalance();
                         double minBalance = account.getMinBalance();
 
-                        // Frozen case
-                        if (balance <= minBalance) {
-                            card.setStatus("frozen");
-                            return "The card is frozen";
-                        }
-
                         // Warning case
                         if ((balance - minBalance) <= 30) {
-                            return "warning";
+                            // return "You have reached the minimum amount of funds, the card will be frozen";
+                            Transaction newTransaction = new Transaction("You have reached the "
+                                    + "minimum amount of funds, the card will be frozen", timestamp);
+                            account.addTransaction(newTransaction);
+                            return false;
                         }
 
-                        // Active case
-                        return "active";
+                        // Frozen case
+                        if (balance < minBalance) {
+                            card.setStatus("frozen");
+                            // return "The card is frozen";
+                            Transaction newTransaction = new Transaction("Card is frozen", timestamp);
+                            account.addTransaction(newTransaction);
+                            return false;
+                        }
+                        return false;
                     }
                 }
+
             }
         }
-
-        // If card not found, throw an exception
-        throw new IllegalArgumentException("Card not found: " + cardNumber);
+        return true;
     }
 
     /**
@@ -458,27 +470,10 @@ public class UserService {
         senderAccount.setBalance(senderAccount.getBalance() - amount);
         receiverAccount.setBalance(receiverAccount.getBalance() + convertedAmount);
 
-        // Înregistrăm tranzacțiile pentru ambele conturi
-        senderAccount.addTransaction(new Transaction(
-                timestamp,
-                description,
-                senderAccount.getIban(),
-                receiverAccount.getIban(),
-                amount,
-                senderAccount.getCurrency(),
-                "sent",
-                receiverIBANOrAlias
-        ));
-        receiverAccount.addTransaction(new Transaction(
-                timestamp,
-                description,
-                senderAccount.getIban(),
-                receiverAccount.getIban(),
-                convertedAmount,
-                receiverAccount.getCurrency(),
-                "received",
-                senderIBAN
-        ));
+        senderAccount.addTransaction(new SendMoneyTransaction(senderIBAN, receiverAccount.getIban(),
+                amount, senderAccount.getCurrency(), "sent", description, timestamp));
+        receiverAccount.addTransaction(new SendMoneyTransaction(senderIBAN, receiverAccount.getIban(),
+                convertedAmount, receiverAccount.getCurrency(), "received", description, timestamp));
     }
 
 
@@ -542,25 +537,17 @@ public class UserService {
 
         // Verificăm dacă este un cont de economii
         if (!(account instanceof SavingsAccount savingsAccount)) {
-            throw new IllegalArgumentException("Dobânda poate fi aplicată doar "
-                    + "conturilor de economii.");
+            throw new IllegalArgumentException("This is not a savings account");
         }
 
         // Calculăm dobânda și o adăugăm la balanță
         double interest = savingsAccount.getBalance() * savingsAccount.getInterestRate() / 100;
         savingsAccount.setBalance(savingsAccount.getBalance() + interest);
 
-        // Înregistrăm tranzacția
-        savingsAccount.addTransaction(new Transaction(
-                timestamp,
-                "Interest added: " + interest,
-                null,
-                savingsAccount.getIban(),
-                interest,
-                savingsAccount.getCurrency(),
-                "interest",
-                null
-        ));
+        String description = "Interest added: " + interest;
+        savingsAccount.addTransaction(new InterestTransaction(savingsAccount.getIban(),
+                interest, savingsAccount.getCurrency(), description, timestamp));
+
     }
 
     /**
@@ -571,22 +558,41 @@ public class UserService {
         double splitSum = command.getAmount() / command.getAccounts().size();
         String description = "Split payment of " + String.format("%.2f", command.getAmount())
                 + " " + command.getCurrency();
-        Transaction newTransaction = new Transaction(command.getTimestamp(), description,
-                command.getCurrency(), splitSum, command.getAccounts());
+        SplitPaymentTransaction newTransaction =
+                new SplitPaymentTransaction(command.getTimestamp(), description, command.getCurrency(),
+                        splitSum, command.getAccounts());
 
-        for (User user : users) {
-            for (Account account : user.getAccounts()) {
-                if (command.getAccounts().contains(account.getIban())) {
-                    if (account.getBalance() < splitSum) {
-                        account.addTransaction(new Transaction("Insufficient funds",
-                                command.getTimestamp()));
-                    } else {
-                        convertedSplitSum = currencyExchangeService.convert(command.getCurrency(),
-                                account.getCurrency(), splitSum);
-                        account.setBalance(account.getBalance() - convertedSplitSum);
-                        account.addTransaction(newTransaction);
-                    }
-                }
+        List<Account> involvedAccounts = new ArrayList<>();
+        boolean hasMoney = true;
+        String poorIban = "";
+        Account account;
+
+        for (String iban : command.getAccounts()) {
+            account = findAccountByIBAN(iban);
+            involvedAccounts.add(account);
+
+            convertedSplitSum = currencyExchangeService.convert(command.getCurrency(),
+                    account.getCurrency(), splitSum);
+
+            if (account.getBalance() < convertedSplitSum) {
+                hasMoney = false;
+                poorIban = account.getIban();
+            }
+        }
+
+        if (hasMoney) {
+            for (Account accountt : involvedAccounts) {
+                convertedSplitSum = currencyExchangeService.convert(command.getCurrency(),
+                        accountt.getCurrency(), splitSum);
+
+                accountt.setBalance(accountt.getBalance() - convertedSplitSum);
+                accountt.addTransaction(newTransaction);
+            }
+        } else {
+            newTransaction.setError("Account " + poorIban
+                    + " has insufficient funds for a split payment.");
+            for (Account accountt : involvedAccounts) {
+                accountt.addTransaction(newTransaction);
             }
         }
     }
@@ -594,11 +600,13 @@ public class UserService {
     /**
      * javadoc
      */
-    public void generateReport(final CommandInput command) {
+    public Report generateReport(final CommandInput command) {
         Account currAccount = null;
+        List<Transaction> transactions = new ArrayList<>();
 
         for (User user : users) {
             for (Account account : user.getAccounts()) {
+                System.out.println("--------------------------------" + account.getIban() + " " + command.getAccount());
                 if (command.getAccount().equals(account.getIban())) {
                     currAccount = account;
                 }
@@ -608,5 +616,28 @@ public class UserService {
         if (currAccount == null) {
             throw new IllegalArgumentException("Account not found");
         }
+
+        if (currAccount instanceof SavingsAccount) {
+            for (Transaction transaction : currAccount.getTransactions()) {
+                if (transaction.isInterest()
+                        && transaction.getTimestamp() >= command.getStartTimestamp()
+                        && transaction.getTimestamp() <= command.getEndTimestamp()) {
+                    transactions.add(transaction);
+                }
+            }
+        } else {
+            for (Transaction transaction : currAccount.getTransactions()) {
+                if (transaction.getTimestamp() >= command.getStartTimestamp()
+                        && transaction.getTimestamp() <= command.getEndTimestamp()) {
+                    transactions.add(transaction);
+                }
+            }
+        }
+
+        // Include balance and currency in the result
+        double balance = currAccount.getBalance(); // Assuming Account has getBalance()
+        String currency = currAccount.getCurrency(); // Assuming Account has getCurrency()
+
+        return new Report(transactions, balance, currency);
     }
 }

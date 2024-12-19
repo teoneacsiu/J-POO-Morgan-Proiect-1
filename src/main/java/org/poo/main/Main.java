@@ -11,10 +11,12 @@ import org.poo.command.DeleteCardCommand;
 import org.poo.fileio.ExchangeInput;
 import org.poo.fileio.ObjectInput;
 import org.poo.model.Account;
-import org.poo.model.Transaction;
+import org.poo.model.Report;
 import org.poo.model.User;
 import org.poo.service.CurrencyExchangeService;
 import org.poo.service.UserService;
+import org.poo.transactions.DeleteCardTransaction;
+import org.poo.transactions.Transaction;
 import org.poo.utils.Utils;
 
 import java.io.File;
@@ -138,7 +140,8 @@ public final class Main {
                     try {
                         userService.deleteAccount(
                                 command.getEmail(),
-                                command.getAccount()
+                                command.getAccount(),
+                                command.getTimestamp()
                         );
 
                         // Add success message to the output
@@ -193,8 +196,7 @@ public final class Main {
                     try {
                         userService.setMinBalance(
                                 command.getAccount(),   // IBAN of the account
-                                command.getAmount(),    // Minimum balance to set
-                                command.getTimestamp()  // Timestamp of the operation
+                                command.getAmount()  // Minimum balance to set
                         );
                     } catch (Exception e) {
                         var errorNode = objectMapper.createObjectNode();
@@ -227,20 +229,13 @@ public final class Main {
                 }
 
                 case "checkCardStatus" -> {
-                    try {
-                        String status = userService.checkCardStatus(command.getCardNumber());
-
-                        // Create output for the status check
-                        var statusNode = objectMapper.createObjectNode();
-                        statusNode.put("command", "checkCardStatus");
-                        statusNode.put("timestamp", command.getTimestamp());
-                        statusNode.putObject("output").put("status", status);
-                        output.add(statusNode);
-                    } catch (Exception e) {
-                        // Handle error cases
+                    if (userService.checkCardStatus(command.getCardNumber(), command.getTimestamp())) {
                         var errorNode = objectMapper.createObjectNode();
                         errorNode.put("command", "checkCardStatus");
-                        errorNode.putObject("output").put("description", e.getMessage());
+                        var outputNode = objectMapper.createObjectNode();
+                        outputNode.put("timestamp", command.getTimestamp());
+                        outputNode.put("description", "Card not found");
+                        errorNode.set("output", outputNode);
                         errorNode.put("timestamp", command.getTimestamp());
                         output.add(errorNode);
                     }
@@ -298,48 +293,10 @@ public final class Main {
                                 // Creăm un nod JSON pentru fiecare tranzacție
                                 ObjectNode transactionNode = objectMapper.createObjectNode();
 
-                                // Verificăm dacă tranzacția a fost generată de comanda deleteCard
-                                if ("deleteCard".equals(transaction.getCommandType())) {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description",
-                                            "The card has been destroyed");
-                                    transactionNode.put("card", transaction.getCardNumber());
-                                    transactionNode.put("cardHolder", transaction.getCardHolder());
+                                transactionNode = transaction.toJson();
+
+                                if (transaction.getClass() == DeleteCardTransaction.class) {
                                     transactionNode.put("account", account.getIban());
-                                } else if ("Card payment".equals(transaction.getDescription())) {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description", "Card payment");
-                                    transactionNode.put("amount", transaction.getAmount());
-                                    transactionNode.put("commerciant",
-                                            transaction.getCommerciant());
-                                } else if ("sent".equals(transaction.getTransferType())
-                                        || "received".equals(transaction.getTransferType())) {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description",
-                                            transaction.getDescription());
-                                    transactionNode.put("senderIBAN", transaction.getSenderIBAN());
-                                    transactionNode.put("receiverIBAN",
-                                            transaction.getReceiverIBAN());
-                                    transactionNode.put("amount",
-                                            transaction.getAmount() + " "
-                                                    + transaction.getCurrency());
-                                    transactionNode.put("transferType",
-                                            transaction.getTransferType());
-                                } else if ("New card created".equals(transaction.getDescription())) {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description", transaction.getDescription());
-                                    transactionNode.put("card", transaction.getCardNumber());
-                                    transactionNode.put("cardHolder", transaction.getCardHolder());
-                                    transactionNode.put("account", transaction.getSenderIBAN());
-                                } else if (transaction.getDescription().contains("Split payment of")) {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description", transaction.getDescription());
-                                    transactionNode.put("currency", transaction.getCurrency());
-                                    transactionNode.put("amount", transaction.getAmount());
-                                    //de intrebat pe teo
-                                } else {
-                                    transactionNode.put("timestamp", transaction.getTimestamp());
-                                    transactionNode.put("description", transaction.getDescription());
                                 }
 
                                 // Adăugăm tranzacția în lista de output
@@ -369,6 +326,7 @@ public final class Main {
                     } catch (Exception e) {
                         var errorNode = objectMapper.createObjectNode();
                         errorNode.put("command", "addInterest");
+                        errorNode.putObject("output").put("timestamp", command.getTimestamp());
                         errorNode.putObject("output").put("description", e.getMessage());
                         errorNode.put("timestamp", command.getTimestamp());
                         output.add(errorNode);
@@ -376,7 +334,36 @@ public final class Main {
                 }
                 case "splitPayment" -> userService.splitPayment(command);
                 case "report" -> {
+                    try {
+                        Report report = userService.generateReport(command);
+                        var reportNode = objectMapper.createObjectNode();
+                        reportNode.put("command", "report");
 
+                        var outputNode = objectMapper.createObjectNode();
+                        outputNode.put("IBAN", command.getAccount());
+                        outputNode.put("balance", report.getBalance());
+                        outputNode.put("currency", report.getCurrency());
+
+                        var transactionsArray = objectMapper.createArrayNode();
+                        for (Transaction transaction : report.getTransactions()) {
+                            transactionsArray.add(transaction.toJson());
+                        }
+                        outputNode.set("transactions", transactionsArray);
+
+                        reportNode.set("output", outputNode);
+                        reportNode.put("timestamp", command.getTimestamp());
+
+                        output.add(reportNode);
+                    } catch (Exception e) {
+                        var errorNode = objectMapper.createObjectNode();
+                        errorNode.put("command", "report");
+                        var outputNode = objectMapper.createObjectNode();
+                        outputNode.put("timestamp", command.getTimestamp());
+                        outputNode.put("description", e.getMessage());
+                        errorNode.set("output", outputNode);
+                        errorNode.put("timestamp", command.getTimestamp());
+                        output.add(errorNode);
+                    }
                 }
                 default -> System.out.println("Hello");
             }
